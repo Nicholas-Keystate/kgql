@@ -51,10 +51,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/WebOfTrust/kgql"
-Documentation = "https://github.com/WebOfTrust/kgql#readme"
-Repository = "https://github.com/WebOfTrust/kgql"
-Issues = "https://github.com/WebOfTrust/kgql/issues"
+Homepage = "https://github.com/Nicholas-Keystate/kgql"
+Documentation = "https://github.com/Nicholas-Keystate/kgql#readme"
+Repository = "https://github.com/Nicholas-Keystate/kgql"
+Issues = "https://github.com/Nicholas-Keystate/kgql/issues"
 
 [project.scripts]
 kgql-mcp = "kgql.mcp:main"
