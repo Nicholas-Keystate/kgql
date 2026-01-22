@@ -17,12 +17,17 @@ Add to `.claude/settings.local.json`:
       "command": "python3",
       "args": ["-m", "kgql.mcp"],
       "env": {
-        "KERI_ORCHESTRATOR_PATH": "/path/to/ai-orchestrator"
+        "KGQL_HABERY_NAME": "kgql",
+        "KERI_BASE": "~/.keri"
       }
     }
   }
 }
 ```
+
+Environment variables (all optional):
+- `KGQL_HABERY_NAME`: Name for the KERI Habery (default: "kgql")
+- `KERI_BASE`: Base path for KERI data (default: ~/.keri)
 
 ### Running Standalone
 

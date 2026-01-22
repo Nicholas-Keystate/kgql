@@ -51,21 +51,23 @@ class KGQLMCPServer:
 
     def __init__(
         self,
-        orchestrator_path: Optional[str] = None,
+        habery_name: Optional[str] = None,
+        keri_base: Optional[str] = None,
         session_state_dir: Optional[Path] = None,
     ):
         """
         Initialize the KGQL MCP server.
 
         Args:
-            orchestrator_path: Path to ai-orchestrator for infrastructure.
-                              Defaults to ~/Documents/KERI/ai-orchestrator
+            habery_name: Name for the KERI Habery (default: "kgql")
+            keri_base: Base path for KERI data (default: ~/.keri)
             session_state_dir: Path to session state files.
                               Defaults to ~/.claude/keri_session/state
         """
-        self._orchestrator_path = orchestrator_path or os.environ.get(
-            "KERI_ORCHESTRATOR_PATH",
-            str(Path.home() / "Documents" / "KERI" / "ai-orchestrator")
+        self._habery_name = habery_name or os.environ.get("KGQL_HABERY_NAME", "kgql")
+        self._keri_base = keri_base or os.environ.get(
+            "KERI_BASE",
+            str(Path.home() / ".keri")
         )
         self._session_state_dir = session_state_dir or (
             Path.home() / ".claude" / "keri_session" / "state"
@@ -82,44 +84,35 @@ class KGQLMCPServer:
         """Get or initialize KERI infrastructure."""
         if self._infra is None:
             try:
-                # Try external infrastructure provider first (e.g., ai-orchestrator)
-                if self._orchestrator_path and os.path.exists(self._orchestrator_path):
-                    if self._orchestrator_path not in sys.path:
-                        sys.path.insert(0, self._orchestrator_path)
-                    try:
-                        from llm_backends.keri_infrastructure import get_infrastructure
-                        self._infra = get_infrastructure()
-                        self._infra.enter()  # Initialize Habery/Regery
-                        return self._infra, None
-                    except ImportError:
-                        pass  # Fall through to standalone mode
-
-                # Standalone mode: use direct keripy initialization
                 from keri.app import habbing
                 from keri.vdr import viring
 
-                # Use default KERI directories
-                keri_home = Path.home() / ".keri"
-                keri_home.mkdir(parents=True, exist_ok=True)
+                # Ensure KERI base directory exists
+                keri_base = Path(self._keri_base)
+                keri_base.mkdir(parents=True, exist_ok=True)
 
-                name = os.environ.get("KGQL_HABERY_NAME", "kgql")
-                base = str(keri_home)
-
-                # Initialize Habery (persistent, not using context manager)
-                hby = habbing.Habery(name=name, base=base, temp=False)
+                # Initialize Habery (persistent)
+                hby = habbing.Habery(
+                    name=self._habery_name,
+                    base=str(keri_base),
+                    temp=False
+                )
 
                 # Initialize Regery
-                rgy = viring.Regery(hby=hby, name=name, base=base, temp=False)
+                rgy = viring.Regery(
+                    hby=hby,
+                    name=self._habery_name,
+                    base=str(keri_base),
+                    temp=False
+                )
 
-                # Create a simple infrastructure container
-                class StandaloneInfra:
+                # Create infrastructure container
+                class KeriInfra:
                     def __init__(self, hby, rgy):
                         self.hby = hby
                         self.rgy = rgy
-                    def enter(self):
-                        pass  # Already initialized
 
-                self._infra = StandaloneInfra(hby, rgy)
+                self._infra = KeriInfra(hby, rgy)
 
             except Exception as e:
                 return None, f"Failed to initialize KERI infrastructure: {e}"

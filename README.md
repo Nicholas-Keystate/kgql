@@ -9,10 +9,15 @@ A declarative query language for KERI credential graphs.
 
 ## Installation
 
-KGQL is part of the ai-orchestrator package:
+```bash
+pip install kgql
+```
+
+Or from source:
 
 ```bash
-cd ai-orchestrator
+git clone https://github.com/WebOfTrust/kgql.git
+cd kgql
 pip install -e .
 ```
 
@@ -176,8 +181,7 @@ python -m kgql.mcp
 ## Testing
 
 ```bash
-cd ai-orchestrator
-python -m pytest tests/kgql/ -v
+python -m pytest tests/ -v
 ```
 
 ## Integration Patterns
