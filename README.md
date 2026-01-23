@@ -127,6 +127,43 @@ Thin wrappers for consistent interface:
 
 - `RegerWrapper` - Wraps keripy Reger for credential queries
 - `VerifierWrapper` - Wraps keripy Verifier for chain verification
+- `EdgeResolver` - Protocol-agnostic edge resolution (ACDC, future: S3, Git)
+- `ACDCEdgeResolver` - KERI/ACDC edge resolver using correct `"e"` field structure
+
+### Indexer (`kgql.indexer`)
+
+Schema-driven indexing based on [Phil Feairheller's](https://github.com/pfeairheller) KERIA Seeker pattern.
+
+```python
+from kgql.indexer import (
+    SchemaIndexer,
+    QueryEngine,
+    create_query_engine,
+    Eq, Begins, Gte,
+)
+
+# Register credential schemas
+engine = create_query_engine({"EPerson_Schema": person_schema})
+
+# Query with operators
+results = engine.query(
+    credentials,
+    {
+        "personLegalName": "Alice",           # Implicit $eq
+        "LEI": {"$begins": "US"},             # Prefix match
+        "age": {"$gte": 30},                  # Comparison
+        "-s": "EPerson_Schema",               # Schema filter
+    },
+)
+```
+
+**Supported Operators:**
+- `$eq` - Equality (default)
+- `$begins` - Prefix match (efficient for LMDB range scans)
+- `$lt`, `$gt`, `$lte`, `$gte` - Comparisons
+- `$contains` - Substring match
+
+**Credit:** The schema-driven indexing approach is inspired by the Seeker class in [KERIA](https://github.com/WebOfTrust/keria) (`keria/db/basing.py`), designed by Phil Feairheller.
 
 ### MCP Server (`kgql.mcp`)
 

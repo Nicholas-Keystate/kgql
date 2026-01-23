@@ -51,14 +51,20 @@ class TestChainVerification:
         reger = Mock()
 
         # Mock credentials in chain
-        # Turn credential
+        # Turn credential - edges use "e" field with "d" for target SAID
         turn_cred = Mock()
         turn_cred.said = "ETURN_SAID"
         turn_cred.issuer = "ESESSION_AID"
         turn_cred.schema = "ETURN_SCHEMA"
-        turn_cred.edges = {
-            "session": {"n": "ESESSION_SAID"},
-            "previous": {"n": "EPREV_TURN_SAID"},
+        turn_cred.e = {
+            "session": {
+                "d": "ESESSION_SAID",
+                "i": "ESESSION_AID",
+            },
+            "previous": {
+                "d": "EPREV_TURN_SAID",
+                "i": "ESESSION_AID",
+            },
         }
 
         # Session credential
@@ -66,8 +72,11 @@ class TestChainVerification:
         session_cred.said = "ESESSION_SAID"
         session_cred.issuer = "ESESSION_AID"
         session_cred.schema = "ESESSION_SCHEMA"
-        session_cred.edges = {
-            "delegator": {"n": "EMASTER_AID"},
+        session_cred.e = {
+            "delegator": {
+                "d": "EDELEGATION_EVENT_SAID",
+                "i": "EMASTER_AID",
+            },
         }
 
         # Map SAIDs to credentials
@@ -94,11 +103,11 @@ class TestChainVerification:
             "ESESSION_SAID": mock_tever,
         }
 
-        # Mock sources for edge traversal
+        # Mock sources for edge traversal - uses "e" field with "d" for target SAID
         def mock_sources(db, said, default=None):
             cred = cred_map.get(said)
-            if cred and hasattr(cred, 'edges'):
-                return [(Mock(said=e["n"]), None) for e in cred.edges.values() if e.get("n")]
+            if cred and hasattr(cred, 'e'):
+                return [(Mock(said=e["d"]), None) for e in cred.e.values() if e.get("d")]
             return []
 
         reger.sources = Mock()
@@ -130,9 +139,9 @@ class TestChainVerification:
         reger = mock_rgy.reger
         turn_cred, _ = reger.cloner.get("ETURN_SAID")
 
-        # Verify turn has previous edge
-        assert "previous" in turn_cred.edges
-        assert turn_cred.edges["previous"]["n"] == "EPREV_TURN_SAID"
+        # Verify turn has previous edge - uses "e" field with "d" for target SAID
+        assert "previous" in turn_cred.e
+        assert turn_cred.e["previous"]["d"] == "EPREV_TURN_SAID"
 
 
 class TestDecisionChainVerification:
@@ -144,14 +153,14 @@ class TestDecisionChainVerification:
         rgy = Mock()
         reger = Mock()
 
-        # Decision credential
+        # Decision credential - uses "e" field with "d" for target SAID
         decision_cred = Mock()
         decision_cred.said = "EDECISION_SAID"
         decision_cred.issuer = "ESESSION_AID"
         decision_cred.schema = "EDECISION_SCHEMA"
-        decision_cred.edges = {
-            "turn": {"n": "ETURN_SAID"},
-            "supersedes": {"n": None},  # First decision, no prior
+        decision_cred.e = {
+            "turn": {"d": "ETURN_SAID", "i": "ESESSION_AID"},
+            "supersedes": {"d": None},  # First decision, no prior
         }
 
         # Second decision superseding first
@@ -159,9 +168,9 @@ class TestDecisionChainVerification:
         decision2_cred.said = "EDECISION2_SAID"
         decision2_cred.issuer = "ESESSION_AID"
         decision2_cred.schema = "EDECISION_SCHEMA"
-        decision2_cred.edges = {
-            "turn": {"n": "ETURN2_SAID"},
-            "supersedes": {"n": "EDECISION_SAID"},  # Supersedes first
+        decision2_cred.e = {
+            "turn": {"d": "ETURN2_SAID", "i": "ESESSION_AID"},
+            "supersedes": {"d": "EDECISION_SAID", "i": "ESESSION_AID"},  # Supersedes first
         }
 
         cred_map = {
@@ -185,11 +194,11 @@ class TestDecisionChainVerification:
         decision1, _ = reger.cloner.get("EDECISION_SAID")
         decision2, _ = reger.cloner.get("EDECISION2_SAID")
 
-        # First decision has no prior
-        assert decision1.edges["supersedes"]["n"] is None
+        # First decision has no prior - uses "e" field with "d" for target SAID
+        assert decision1.e["supersedes"]["d"] is None
 
         # Second decision supersedes first
-        assert decision2.edges["supersedes"]["n"] == "EDECISION_SAID"
+        assert decision2.e["supersedes"]["d"] == "EDECISION_SAID"
 
 
 class TestSkillExecutionChainVerification:
@@ -207,14 +216,14 @@ class TestSkillExecutionChainVerification:
         skill_cred.issuer = "EORCHESTRATOR_AID"
         skill_cred.schema = "ESKILL_DEFINITION_SCHEMA"
 
-        # Skill execution credential
+        # Skill execution credential - uses "e" field with "d" for target SAID
         execution_cred = Mock()
         execution_cred.said = "EEXECUTION_SAID"
         execution_cred.issuer = "ESESSION_AID"
         execution_cred.schema = "ESKILL_EXECUTION_SCHEMA"
-        execution_cred.edges = {
-            "skill": {"n": "ESKILL_SAID"},
-            "session": {"n": "ESESSION_SAID"},
+        execution_cred.e = {
+            "skill": {"d": "ESKILL_SAID", "i": "EORCHESTRATOR_AID"},
+            "session": {"d": "ESESSION_SAID", "i": "ESESSION_AID"},
         }
 
         cred_map = {
@@ -237,9 +246,9 @@ class TestSkillExecutionChainVerification:
 
         execution, _ = reger.cloner.get("EEXECUTION_SAID")
 
-        # Execution has skill edge
-        assert "skill" in execution.edges
-        assert execution.edges["skill"]["n"] == "ESKILL_SAID"
+        # Execution has skill edge - uses "e" field with "d" for target SAID
+        assert "skill" in execution.e
+        assert execution.e["skill"]["d"] == "ESKILL_SAID"
 
 
 class TestFullChainVerification:
@@ -316,18 +325,17 @@ class TestTraverseDelegator:
         reger = Mock()
 
         # Session credential with proper delegator edge (KEL-anchored)
+        # Uses "e" field with "d" for target SAID per ACDC spec
         session_cred_kel = Mock()
         session_cred_kel.said = "ESESSION_CRED_KEL"
         session_cred_kel.issuer = "ESESSION_AID"
         session_cred_kel.data = {
-            "edges": {
+            "e": {
                 "delegator": {
-                    "n": "EMASTER_AID_PREFIX",
-                    "s": "EKEL_EVENT_SAID",  # KEL event SAID
-                    "o": {
-                        "kel_event_said": "EKEL_EVENT_SAID",
-                        "seal_said": "ESEAL_SAID",
-                    },
+                    "d": "EKEL_EVENT_SAID",  # Target SAID in "d" field
+                    "i": "EMASTER_AID_PREFIX",  # Master AID
+                    "kel_event_said": "EKEL_EVENT_SAID",
+                    "seal_said": "ESEAL_SAID",
                 },
             },
         }
@@ -337,10 +345,10 @@ class TestTraverseDelegator:
         session_cred_seal.said = "ESESSION_CRED_SEAL"
         session_cred_seal.issuer = "ESESSION_AID"
         session_cred_seal.data = {
-            "edges": {
+            "e": {
                 "delegator": {
-                    "n": "EMASTER_AID_PREFIX",
-                    "s": "ESEAL_SAID",  # Seal SAID only (no KEL anchor)
+                    "d": "ESEAL_SAID",  # Target SAID (seal only)
+                    "i": "EMASTER_AID_PREFIX",
                 },
             },
         }
@@ -350,9 +358,9 @@ class TestTraverseDelegator:
         turn_cred.said = "ETURN_SAID"
         turn_cred.issuer = "ESESSION_AID"
         turn_cred.data = {
-            "edges": {
-                "session": {"n": "ESESSION_CRED_KEL"},
-                "previous": {"n": None},
+            "e": {
+                "session": {"d": "ESESSION_CRED_KEL", "i": "ESESSION_AID"},
+                "previous": {"d": None},
             },
         }
 
@@ -379,30 +387,29 @@ class TestTraverseDelegator:
         kgql = KGQL(hby=mock_hby_with_master, rgy=mock_rgy_with_delegator_edge, verifier=None)
 
         # Build credential data map for resolve() mocking
+        # Uses "e" field with "d" for target SAID per ACDC spec
         session_cred_kel_data = {
-            "edges": {
+            "e": {
                 "delegator": {
-                    "n": "EMASTER_AID_PREFIX",
-                    "s": "EKEL_EVENT_SAID",
-                    "o": {
-                        "kel_event_said": "EKEL_EVENT_SAID",
-                        "seal_said": "ESEAL_SAID",
-                    },
+                    "d": "EKEL_EVENT_SAID",  # Target SAID
+                    "i": "EMASTER_AID_PREFIX",  # Master AID
+                    "kel_event_said": "EKEL_EVENT_SAID",
+                    "seal_said": "ESEAL_SAID",
                 },
             },
         }
         session_cred_seal_data = {
-            "edges": {
+            "e": {
                 "delegator": {
-                    "n": "EMASTER_AID_PREFIX",
-                    "s": "ESEAL_SAID",
+                    "d": "ESEAL_SAID",  # Target SAID
+                    "i": "EMASTER_AID_PREFIX",
                 },
             },
         }
         turn_cred_data = {
-            "edges": {
-                "session": {"n": "ESESSION_CRED_KEL"},
-                "previous": {"n": None},
+            "e": {
+                "session": {"d": "ESESSION_CRED_KEL", "i": "ESESSION_AID"},
+                "previous": {"d": None},
             },
             "issuer": "ESESSION_AID",
         }
@@ -501,9 +508,9 @@ class TestTraverseDelegator:
         """Test chain verification when turn is missing session edge."""
         kgql = KGQL(hby=mock_hby_with_master, rgy=mock_rgy_with_delegator_edge, verifier=None)
 
-        # Create turn credential data without session edge
+        # Create turn credential data without session edge - uses "e" field
         turn_no_session_data = {
-            "edges": {},  # No session edge
+            "e": {},  # No session edge
             "issuer": "ESESSION_AID",
         }
 

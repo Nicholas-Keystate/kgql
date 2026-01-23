@@ -454,14 +454,20 @@ class KGQL:
             result.metadata = {"error": "Session credential not found"}
             return result
 
-        # Get delegator edge
+        # Get delegator edge using EdgeResolver pattern
+        # ACDC edges are in "e" field with nested messages; target SAID is in "d" field
         cred_data = session_item.data
-        edges = cred_data.get("edges", {}) if isinstance(cred_data, dict) else {}
+        edges = cred_data.get("e", {}) if isinstance(cred_data, dict) else {}
         delegator = edges.get("delegator", {})
 
-        master_pre = delegator.get("n")
-        reference_said = delegator.get("s")  # KEL event or seal SAID
-        metadata = delegator.get("o", {})  # Optional metadata
+        # In ACDC edge structure:
+        # - "d" contains the SAID of the target (e.g., delegation event SAID)
+        # - "i" contains the issuer/delegator AID
+        # For delegation chains, master_pre is the delegator's AID from "i" field
+        reference_said = delegator.get("d")  # Target/event SAID
+        master_pre = delegator.get("i")  # Master AID prefix from issuer field
+        # Additional metadata from the nested message
+        metadata = {k: v for k, v in delegator.items() if k not in ("v", "d", "i", "t", "s")}
 
         if not master_pre:
             result.metadata = {"error": "No delegator edge found in session credential"}
@@ -550,10 +556,11 @@ class KGQL:
         })
 
         # Step 2: Traverse to session
+        # ACDC edges are in "e" field; target SAID is in "d" field of nested message
         turn_data = turn_item.data if isinstance(turn_item.data, dict) else {}
-        turn_edges = turn_data.get("edges", {})
+        turn_edges = turn_data.get("e", {})
         session_edge = turn_edges.get("session", {})
-        session_said = session_edge.get("n")
+        session_said = session_edge.get("d")  # Target SAID in "d" field
 
         if not session_said:
             result.metadata = {
