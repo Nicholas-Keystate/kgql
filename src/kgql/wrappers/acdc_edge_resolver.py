@@ -58,6 +58,26 @@ KERI_MESSAGE_TYPES = {
     "brv",  # Backed revocation
 }
 
+# Known edge types for relationship traversal
+KNOWN_EDGE_TYPES = {
+    # ACDC credential edges
+    "acdc": "Chained credential reference",
+    "parent": "Parent credential in chain",
+    "previous": "Previous credential (monotonic chain)",
+    "session": "Session credential",
+    "delegator": "Delegator (master AID)",
+    "target": "Target credential (for attestations)",
+    # KERI event edges
+    "iss": "Issuance event",
+    "anc": "Anchor event",
+    "vcp": "Registry inception",
+    "ixn": "Interaction event",
+    # Watcher/observer edges
+    "watcher": "Watcher attestation",
+    "witness": "Witness receipt",
+    "receipt": "Receipt/acknowledgment",
+}
+
 
 class ACDCEdgeResolver(EdgeResolver):
     """
@@ -204,3 +224,67 @@ class ACDCEdgeResolver(EdgeResolver):
 
         # Also accept if it has the key ACDC fields
         return all(k in content for k in ("d", "i", "s"))
+
+    def get_watcher_edge(self, credential: Any) -> Optional[EdgeRef]:
+        """
+        Get the watcher attestation edge if present.
+
+        Per KERI spec, watchers observe and attest to events. A watcher edge
+        links to an independent observer's attestation credential.
+
+        Args:
+            credential: ACDC credential dict
+
+        Returns:
+            EdgeRef to watcher attestation, or None if not present
+        """
+        return self.get_edge(credential, "watcher")
+
+    def get_watcher_aid(self, credential: Any) -> Optional[str]:
+        """
+        Get the watcher AID from a credential's watcher edge.
+
+        Args:
+            credential: ACDC credential dict
+
+        Returns:
+            Watcher AID string, or None if no watcher edge
+        """
+        watcher_edge = self.get_watcher_edge(credential)
+        if watcher_edge and watcher_edge.metadata:
+            return watcher_edge.metadata.get("aid")
+        return None
+
+    def has_watcher_attestation(self, credential: Any) -> bool:
+        """
+        Check if a credential has a watcher attestation edge.
+
+        Args:
+            credential: ACDC credential dict
+
+        Returns:
+            True if watcher edge exists
+        """
+        return self.get_watcher_edge(credential) is not None
+
+    def is_watcher_signed(self, credential: Any) -> bool:
+        """
+        Check if credential was signed by a watcher (has signature field).
+
+        Some credentials embed the watcher signature directly rather than
+        using an edge to a separate attestation credential.
+
+        Args:
+            credential: ACDC credential dict
+
+        Returns:
+            True if credential has watcher signature
+        """
+        if not isinstance(credential, dict):
+            return False
+
+        # Check for signature field and issuer (watcher mode)
+        has_signature = bool(credential.get("signature"))
+        has_issuer = bool(credential.get("i"))
+
+        return has_signature and has_issuer
