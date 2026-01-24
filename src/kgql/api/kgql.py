@@ -75,40 +75,18 @@ class QueryResult:
         """Collect all SAIDs from the result items."""
         return [item.said for item in self.items]
 
-    def to_ctoon(self) -> str:
+    def to_json(self, indent: int = 2) -> str:
         """
-        Convert query result to CTOON format for token-efficient AI context.
+        Convert query result to compact JSON for AI context injection.
 
-        Returns compact CTOON representation with 40-60% token savings
-        compared to JSON format. Useful for injecting query results into
-        AI agent context windows.
+        Args:
+            indent: JSON indentation (default 2, use None for compact)
 
         Returns:
-            CTOON-formatted string
-
-        Example:
-            >>> result = kgql.query("MATCH (c:Credential) RETURN c")
-            >>> print(result.to_ctoon())
-            items[2]{said,issuer,schema}:
-              EAbc...,EGLEIF...,EVLEI...
-              EDef...,EQVI...,EQVI_SCHEMA...
-            count: 2
+            JSON-formatted string
         """
-        try:
-            # Try to import CTOON encoder
-            from utils.ctoon import encode
-        except ImportError:
-            # Fallback: try ai-orchestrator path
-            try:
-                import sys
-                sys.path.insert(0, "/Users/hun-magnon/Documents/KERI/ai-orchestrator")
-                from utils.ctoon import encode
-            except ImportError:
-                # Final fallback: return JSON
-                import json
-                return json.dumps(self.to_dict(), indent=2)
-
-        return encode(self.to_dict())
+        import json
+        return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
