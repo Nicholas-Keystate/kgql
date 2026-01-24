@@ -16,6 +16,21 @@ from typing import Any, Callable, Iterator, Optional
 from kgql.indexer.schema_indexer import SchemaIndexer, IndexDefinition, FieldType
 from kgql.indexer.query_operators import QueryOperator, parse_query_value
 
+# Semantic slug generation
+try:
+    from agents.inference.embedding_store import generate_semantic_slug
+    HAS_SLUG_GENERATOR = True
+except ImportError:
+    HAS_SLUG_GENERATOR = False
+
+    def generate_semantic_slug(text: str, max_words: int = 3) -> str:
+        """Fallback slug generation."""
+        import re
+        words = re.findall(r'\b[a-zA-Z][a-zA-Z0-9]{2,}\b', text.lower())
+        stopwords = {'the', 'and', 'for', 'this', 'that', 'with', 'from', 'are', 'was'}
+        keywords = [w for w in words if w not in stopwords][:max_words]
+        return "-".join(keywords) if keywords else ""
+
 
 @dataclass
 class QueryResult:
@@ -25,6 +40,13 @@ class QueryResult:
     issuer: str                         # Issuer AID
     said: str                           # Credential SAID
     matched_fields: dict = field(default_factory=dict)  # Fields that matched
+    slug: str = ""                      # Semantic colloquial name
+
+    def display_id(self) -> str:
+        """Return SAID with slug for human-readable display."""
+        if self.slug:
+            return f"{self.said[:12]}... ({self.slug})"
+        return f"{self.said[:12]}..."
 
 
 @dataclass
@@ -130,6 +152,16 @@ class QueryEngine:
 
         for cred in credentials:
             if self._matches_credential(cred, query):
+                # Generate semantic slug from credential attributes
+                attrs = cred.get("a", {})
+                slug_source = " ".join([
+                    str(attrs.get("title", "")),
+                    str(attrs.get("summary", "")),
+                    str(attrs.get("name", "")),
+                    str(attrs.get("type", "")),
+                ])
+                slug = generate_semantic_slug(slug_source, max_words=3) if slug_source.strip() else ""
+
                 yield QueryResult(
                     credential=cred,
                     schema_said=cred.get("s", ""),
@@ -139,6 +171,7 @@ class QueryEngine:
                         f: op.operator_name
                         for f, op in query.field_conditions.items()
                     },
+                    slug=slug,
                 )
 
     def _matches_credential(self, credential: dict, query: Query) -> bool:
