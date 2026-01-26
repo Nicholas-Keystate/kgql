@@ -35,7 +35,7 @@ classifiers = [
 ]
 dependencies = [
     "keri>=1.2.0",
-    "hio>=0.6.0",
+    "hio>=0.6.14",
     "lark>=1.1.0",
 ]
 
@@ -85,3 +85,7 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 ignore = ["E501"]
+
+[tool.governed-stack]
+stack_said = "EDwA5vXKjRCmqnYqNJh4iEEOxHYKJO0sTFQ3TGFqL0Ej"
+owner_baid = "BAID_KERI_WORKSPACE"
