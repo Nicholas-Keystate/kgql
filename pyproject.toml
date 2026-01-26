@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "KERI Graph Query Language - Declarative queries for KERI credential graphs"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "WebOfTrust", email = "info@gleif.org" },
 ]
@@ -87,5 +87,6 @@ select = ["E", "F", "W", "I"]
 ignore = ["E501"]
 
 [tool.governed-stack]
-stack_said = "EDwA5vXKjRCmqnYqNJh4iEEOxHYKJO0sTFQ3TGFqL0Ej"
+stack_said = "EG8A-3vrjQcU-XWXcC6YmaFqz0SBGM1Wb0McCOMCLyqC"
 owner_baid = "BAID_KERI_WORKSPACE"
+workspace_said = "EOco2uCpLgkkpADLeIRpJQHu5znktU16ZaHdUT3uU-i4"
