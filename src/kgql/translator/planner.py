@@ -129,7 +129,19 @@ class QueryPlanner:
         if query.return_clause:
             plan.return_fields = [item.expression for item in query.return_clause.items]
 
-        # If WITHIN FRAMEWORK specified, load framework as first step
+        # If AT KEYSTATE specified, resolve key state as first step
+        if query.keystate_context:
+            plan.add_step(PlanStep(
+                method_type=MethodType.KEVER_STATE,
+                method_name="resolve_keystate",
+                args={
+                    "aid": query.keystate_context.aid,
+                    "seq": query.keystate_context.seq,
+                },
+                result_key="keystate_snapshot",
+            ))
+
+        # If WITHIN FRAMEWORK specified, load framework
         if query.governance_context:
             plan.framework_said = query.governance_context.framework
             plan.add_step(PlanStep(
