@@ -30,6 +30,8 @@ from hio.help import Deck
 from kgql.parser import KGQLParser, KGQLQuery
 from kgql.translator import QueryPlanner, ExecutionPlan, MethodType
 from kgql.wrappers import RegerWrapper, VerifierWrapper
+from kgql.governance.resolver import FrameworkResolver
+from kgql.governance.checker import ConstraintChecker
 
 if TYPE_CHECKING:
     from keri.app.habbing import Habery
@@ -128,7 +130,8 @@ class KGQL:
         self,
         hby: "Habery",
         rgy: "Regery",
-        verifier: Optional["Verifier"] = None
+        verifier: Optional["Verifier"] = None,
+        framework_resolver: Optional[FrameworkResolver] = None,
     ):
         """
         Initialize KGQL with keripy instances.
@@ -137,6 +140,8 @@ class KGQL:
             hby: Habery instance for key state access
             rgy: Regery instance for credential access
             verifier: Optional Verifier instance for chain verification
+            framework_resolver: Optional resolver for governance frameworks.
+                If not provided, one is created using the Reger wrapper.
         """
         self._hby = hby
         self._rgy = rgy
@@ -145,6 +150,11 @@ class KGQL:
         # Create wrappers for consistent interface
         self._reger_wrapper = RegerWrapper(self._reger)
         self._verifier_wrapper = VerifierWrapper(verifier, hby) if verifier else None
+
+        # Governance framework resolver
+        self._framework_resolver = framework_resolver or FrameworkResolver(
+            credential_resolver=self._reger_wrapper.resolve
+        )
 
         # Parser and planner
         self._parser = KGQLParser()
@@ -163,6 +173,11 @@ class KGQL:
     def hby(self):
         """Direct access to Habery for advanced operations."""
         return self._hby
+
+    @property
+    def framework_resolver(self) -> FrameworkResolver:
+        """Access the framework resolver for manual registration."""
+        return self._framework_resolver
 
     def query(
         self,
@@ -229,16 +244,23 @@ class KGQL:
         Execute a query plan using existing keripy methods.
 
         Each step in the plan maps directly to a keripy method call.
+        If a FRAMEWORK_LOAD step is present, a ConstraintChecker is
+        attached to the execution context for governance evaluation.
         """
         result = QueryResult()
         step_results = {}
+        checker = None  # Governance constraint checker (if WITHIN FRAMEWORK)
 
         for idx, step in enumerate(plan.steps):
             # Resolve variables in step args
             resolved_args = self._resolve_variables(step.args, variables)
 
             # Execute step based on method type
-            if step.method_type == MethodType.REGER_INDEX:
+            if step.method_type == MethodType.FRAMEWORK_LOAD:
+                step_result = self._execute_framework_load(resolved_args)
+                if isinstance(step_result, ConstraintChecker):
+                    checker = step_result
+            elif step.method_type == MethodType.REGER_INDEX:
                 step_result = self._execute_index_query(step, resolved_args)
             elif step.method_type == MethodType.REGER_CLONE:
                 step_result = self._execute_clone(step, resolved_args)
@@ -255,6 +277,13 @@ class KGQL:
 
         # Build final result from step results
         result = self._build_result(step_results, plan)
+
+        # Attach governance metadata if framework was loaded
+        if checker:
+            result.metadata["governance"] = {
+                "framework_said": checker.framework_said,
+                "framework_name": checker.framework.name,
+            }
 
         return result
 
@@ -328,6 +357,26 @@ class KGQL:
             issuer=args.get("issuer"),
             operator=args.get("operator")
         )
+
+    def _execute_framework_load(self, args: dict) -> Optional[ConstraintChecker]:
+        """
+        Load a governance framework and return a ConstraintChecker.
+
+        Args:
+            args: Must contain 'framework_said'
+
+        Returns:
+            ConstraintChecker if framework resolves, None otherwise
+        """
+        framework_said = args.get("framework_said")
+        if not framework_said:
+            return None
+
+        framework = self._framework_resolver.resolve(framework_said)
+        if not framework:
+            return None
+
+        return ConstraintChecker(framework)
 
     def _matches_filter(self, said: str, filter_dict: dict) -> bool:
         """Check if a credential matches filter conditions."""

@@ -34,6 +34,7 @@ class MethodType(Enum):
     REGER_SOURCES = "reger_sources"  # sources
     VERIFIER_CHAIN = "verifier_chain"  # verifyChain
     KEVER_STATE = "kever_state"      # get key state
+    FRAMEWORK_LOAD = "framework_load"  # load governance framework by SAID
 
 
 @dataclass
@@ -65,6 +66,7 @@ class ExecutionPlan:
     limit: Optional[int] = None
     order_by: Optional[str] = None
     order_direction: str = "ASC"
+    framework_said: Optional[str] = None  # WITHIN FRAMEWORK SAID
 
     def add_step(self, step: PlanStep) -> int:
         """Add a step and return its index."""
@@ -126,6 +128,16 @@ class QueryPlanner:
 
         if query.return_clause:
             plan.return_fields = [item.expression for item in query.return_clause.items]
+
+        # If WITHIN FRAMEWORK specified, load framework as first step
+        if query.governance_context:
+            plan.framework_said = query.governance_context.framework
+            plan.add_step(PlanStep(
+                method_type=MethodType.FRAMEWORK_LOAD,
+                method_name="resolve_framework",
+                args={"framework_said": query.governance_context.framework},
+                result_key="governance_framework",
+            ))
 
         # Plan the operation
         if query.match:
