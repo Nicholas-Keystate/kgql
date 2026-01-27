@@ -22,7 +22,13 @@ from kgql.governance.schema import (
     FrameworkVersion,
 )
 from kgql.governance.resolver import FrameworkResolver
-from kgql.governance.checker import ConstraintChecker
+from kgql.governance.checker import ConstraintChecker, operator_satisfies
+from kgql.governance.compiler import (
+    ConstraintCompiler,
+    CompiledFramework,
+    CompiledFieldConstraint,
+    compile_field_expression,
+)
 
 __all__ = [
     "GovernanceFramework",
@@ -32,4 +38,9 @@ __all__ = [
     "FrameworkVersion",
     "FrameworkResolver",
     "ConstraintChecker",
+    "operator_satisfies",
+    "ConstraintCompiler",
+    "CompiledFramework",
+    "CompiledFieldConstraint",
+    "compile_field_expression",
 ]
