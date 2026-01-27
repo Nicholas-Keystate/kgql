@@ -371,6 +371,7 @@ class TestEdgeResolverRegistry:
 
         assert "keri" in registry
         assert isinstance(registry.get("keri"), ACDCEdgeResolver)
+        assert "pattern-space" in registry
 
 
 # Integration Tests

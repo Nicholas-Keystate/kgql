@@ -220,13 +220,19 @@ class EdgeResolverRegistry:
 
 def create_default_registry() -> EdgeResolverRegistry:
     """
-    Create a registry with standard KERI/ACDC resolver.
+    Create a registry with standard resolvers.
+
+    Includes:
+        - ACDCEdgeResolver (KERI/ACDC credential edges)
+        - PatternSpaceEdgeResolver (concept/pattern ontology graph)
 
     Returns:
-        EdgeResolverRegistry with ACDCEdgeResolver registered
+        EdgeResolverRegistry with default resolvers registered
     """
     from kgql.wrappers.acdc_edge_resolver import ACDCEdgeResolver
+    from kgql.wrappers.pattern_space_resolver import PatternSpaceEdgeResolver
 
     registry = EdgeResolverRegistry()
     registry.register(ACDCEdgeResolver())
+    registry.register(PatternSpaceEdgeResolver())
     return registry

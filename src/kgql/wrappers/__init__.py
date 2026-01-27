@@ -22,6 +22,7 @@ from kgql.wrappers.reger_wrapper import RegerWrapper
 from kgql.wrappers.verifier_wrapper import VerifierWrapper
 from kgql.wrappers.edge_resolver import EdgeRef, EdgeResolver
 from kgql.wrappers.acdc_edge_resolver import ACDCEdgeResolver, KNOWN_EDGE_TYPES
+from kgql.wrappers.pattern_space_resolver import PatternSpaceEdgeResolver
 from kgql.wrappers.edge_registry import EdgeResolverRegistry, create_default_registry
 
 __all__ = [
@@ -32,6 +33,7 @@ __all__ = [
     "EdgeRef",
     "EdgeResolver",
     "ACDCEdgeResolver",
+    "PatternSpaceEdgeResolver",
     "EdgeResolverRegistry",
     "create_default_registry",
     # Edge type reference
