@@ -5,7 +5,7 @@ KGQL MCP Server - KERI Graph Query Language tools for MCP clients.
 Provides direct credential graph access via MCP, enabling clients to:
 - Resolve credentials by SAID
 - Query credentials by issuer, subject, schema
-- Verify attestation chains (Turn → Session → Master)
+- Verify delegation chains
 - Execute dynamic KGQL queries
 
 Architecture:
@@ -19,7 +19,7 @@ Usage:
     # Or from this file directly
     python server.py
 
-    # Configure in Claude Code settings.local.json:
+    # Configure in any MCP-compatible client:
     {
         "mcpServers": {
             "kgql": {
@@ -189,10 +189,10 @@ class KGQLMCPServer:
 
     def _tool_verify_chain(self, turn_said: str) -> dict:
         """
-        Verify complete attestation chain: Turn → Session → Master.
+        Verify a complete delegation chain from credential to root AID.
 
-        This is the critical audit function that proves a turn
-        credential chains back to the master AID.
+        This is the critical audit function that proves a credential
+        chains back to its root through delegation.
         """
         kgql, error = self._get_kgql()
         if error:
@@ -389,7 +389,7 @@ class KGQLMCPServer:
             },
             {
                 "name": "kgql_verify_chain",
-                "description": "Verify complete attestation chain: Turn -> Session -> Master. This is the critical audit function that proves a turn credential chains back to the master AID.",
+                "description": "Verify a complete delegation chain from credential to root AID. Proves that a credential chains back to its root through delegation.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {

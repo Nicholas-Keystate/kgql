@@ -10,7 +10,7 @@ Core Principles:
 
 Components:
 - KGQL: Main query interface
-- kgql.mcp: MCP server for Claude Code integration
+- kgql.mcp: MCP server for LLM tool integration
 
 Usage:
     from kgql import KGQL
@@ -21,7 +21,7 @@ Usage:
     # Execute queries
     result = kgql.query("RESOLVE $said", variables={"said": "ESAID..."})
 
-    # Or use MCP server for Claude Code
+    # Or run MCP server
     # python -m kgql.mcp
 """
 

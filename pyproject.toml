@@ -10,7 +10,7 @@ readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
 authors = [
-    { name = "WebOfTrust", email = "info@gleif.org" },
+    { name = "Nicholas-Keystate" },
 ]
 keywords = [
     "keri",
@@ -85,8 +85,3 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 ignore = ["E501"]
-
-[tool.governed-stack]
-stack_said = "EG8A-3vrjQcU-XWXcC6YmaFqz0SBGM1Wb0McCOMCLyqC"
-owner_baid = "BAID_KERI_WORKSPACE"
-workspace_said = "EOco2uCpLgkkpADLeIRpJQHu5znktU16ZaHdUT3uU-i4"

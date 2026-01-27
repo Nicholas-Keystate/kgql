@@ -1,49 +1,43 @@
 # KGQL - KERI Graph Query Language
 
-A declarative query language for KERI credential graphs.
+Declarative query language for KERI credential graphs. Thin wrappers over keripy — no reimplementation.
 
-## Core Principles
+## Principles
 
-1. **"Resolution IS Verification"** - If a SAID resolves, the credential exists and its cryptographic integrity is guaranteed
-2. **"Don't Duplicate, Integrate"** - Thin wrappers over keripy, not reimplementation
+1. **Resolution IS Verification** — If a SAID resolves, cryptographic integrity is guaranteed
+2. **Don't Duplicate, Integrate** — Thin wrappers over keripy, not a parallel stack
 
-## Installation
+## Install
 
 ```bash
 pip install kgql
 ```
 
-Or from source:
-
-```bash
-git clone https://github.com/WebOfTrust/kgql.git
-cd kgql
-pip install -e .
-```
-
-## Quick Start
+## Usage
 
 ```python
 from kgql import KGQL
 
-# Initialize with keripy instances
+# Initialize with any keripy Habery/Regery/Verifier
 kgql = KGQL(hby=hby, rgy=rgy, verifier=verifier)
 
-# Resolve a credential
+# Resolve a credential by SAID
 result = kgql.resolve("ESAID...")
-if result:
-    print(f"Found: {result.said}")
-    print(f"Issuer: {result.data.get('issuer')}")
 
 # Query by issuer
 creds = kgql.by_issuer("EAID...")
-print(f"Found {len(creds)} credentials")
 
-# Execute a KGQL query
+# Execute a KGQL query string
 result = kgql.query(
     "MATCH (c:Credential) WHERE c.issuer = $aid",
     variables={"aid": "EAID..."}
 )
+
+# Verify a credential chain
+result = kgql.verify("ESAID...")
+
+# Traverse edges
+result = kgql.traverse("ESAID...", "delegator")
 ```
 
 ## Query Language
@@ -76,11 +70,10 @@ VERIFY $said
 
 ### TRAVERSE
 
-Traverse credential relationships:
+Follow credential edges:
 
 ```
 TRAVERSE FROM $said FOLLOW edge
-TRAVERSE FROM $said FOLLOW session
 TRAVERSE FROM $said FOLLOW delegator
 ```
 
@@ -88,15 +81,12 @@ TRAVERSE FROM $said FOLLOW delegator
 
 ### Core API (`kgql.api`)
 
-The main `KGQL` class provides:
-
-- `query(kgql_string, variables)` - Execute any KGQL query
-- `resolve(said)` - Resolve single credential
-- `by_issuer(aid)` - Get credentials by issuer
-- `by_subject(aid)` - Get credentials by subject
-- `verify(said)` - Verify credential chain
-- `traverse(from_said, edge_type)` - Traverse relationships
-- `verify_end_to_end_chain(turn_said)` - Full chain verification
+- `query(kgql_string, variables)` — Execute any KGQL query
+- `resolve(said)` — Resolve single credential
+- `by_issuer(aid)` / `by_subject(aid)` — Query by participant
+- `verify(said)` — Verify credential chain
+- `traverse(from_said, edge_type)` — Follow edges
+- `verify_end_to_end_chain(said)` — Full delegation chain verification
 
 ### Parser (`kgql.parser`)
 
@@ -111,166 +101,140 @@ ast = parser.parse("RESOLVE $said", variables={"said": "ESAID..."})
 
 ### Translator (`kgql.translator`)
 
-Maps KGQL operations to keripy method calls:
+Maps AST operations to keripy method calls:
 
 ```python
 from kgql.translator import QueryPlanner
 
 planner = QueryPlanner()
 plan = planner.plan(ast)
-# plan.steps contains keripy method mappings
 ```
 
 ### Wrappers (`kgql.wrappers`)
 
-Thin wrappers for consistent interface:
+Protocol-agnostic edge resolution:
 
-- `RegerWrapper` - Wraps keripy Reger for credential queries
-- `VerifierWrapper` - Wraps keripy Verifier for chain verification
-- `EdgeResolver` - Protocol-agnostic edge resolution (ACDC, future: S3, Git)
-- `ACDCEdgeResolver` - KERI/ACDC edge resolver using correct `"e"` field structure
+- `EdgeResolver` — Abstract interface for any protocol
+- `ACDCEdgeResolver` — KERI/ACDC credential edges (reads the `"e"` field)
+- `PatternSpaceEdgeResolver` — Concept/pattern ontology graph edges
+- `EdgeResolverRegistry` — Multi-protocol resolver registry
+- `RegerWrapper` — Thin wrapper over keripy Reger
+- `VerifierWrapper` — Thin wrapper over keripy Verifier
+
+```python
+from kgql.wrappers import create_default_registry
+
+# Registry with ACDC + PatternSpace resolvers
+registry = create_default_registry()
+
+# Resolve an edge from a credential
+edge = registry.resolve_edge(credential, "iss")
+print(edge.target_said)
+
+# Or from a concept/pattern node
+edge = registry.resolve_edge(
+    {"slug": "keri-runtime-singleton"},
+    "references",
+    protocol_hint="pattern-space",
+)
+```
+
+Implementing a custom resolver:
+
+```python
+from kgql.wrappers import EdgeResolver, EdgeRef
+
+class MyProtocolResolver(EdgeResolver):
+    @property
+    def protocol(self) -> str:
+        return "my-protocol"
+
+    def get_edge(self, content, edge_name):
+        # Extract edge from your protocol's format
+        ...
+
+    def list_edges(self, content):
+        # List available edges
+        ...
+
+registry.register(MyProtocolResolver())
+```
 
 ### Indexer (`kgql.indexer`)
 
-Schema-driven indexing based on [Phil Feairheller's](https://github.com/pfeairheller) KERIA Seeker pattern.
+Schema-driven credential indexing (inspired by Phil Feairheller's KERIA Seeker pattern):
 
 ```python
-from kgql.indexer import (
-    SchemaIndexer,
-    QueryEngine,
-    create_query_engine,
-    Eq, Begins, Gte,
-)
+from kgql.indexer import create_query_engine
 
-# Register credential schemas
-engine = create_query_engine({"EPerson_Schema": person_schema})
+engine = create_query_engine({"ESchema...": person_schema})
 
-# Query with operators
 results = engine.query(
     credentials,
     {
-        "personLegalName": "Alice",           # Implicit $eq
-        "LEI": {"$begins": "US"},             # Prefix match
-        "age": {"$gte": 30},                  # Comparison
-        "-s": "EPerson_Schema",               # Schema filter
+        "personLegalName": "Alice",       # Implicit $eq
+        "LEI": {"$begins": "US"},         # Prefix match
+        "age": {"$gte": 30},              # Comparison
+        "-s": "ESchema...",               # Schema filter
     },
 )
 ```
 
-**Supported Operators:**
-- `$eq` - Equality (default)
-- `$begins` - Prefix match (efficient for LMDB range scans)
-- `$lt`, `$gt`, `$lte`, `$gte` - Comparisons
-- `$contains` - Substring match
-
-**Credit:** The schema-driven indexing approach is inspired by the Seeker class in [KERIA](https://github.com/WebOfTrust/keria) (`keria/db/basing.py`), designed by Phil Feairheller.
+Operators: `$eq`, `$begins`, `$lt`, `$gt`, `$lte`, `$gte`, `$contains`
 
 ### MCP Server (`kgql.mcp`)
 
-Model Context Protocol server for Claude Code integration:
+Model Context Protocol server for LLM tool integration:
 
 ```bash
-# Run as MCP server
 python -m kgql.mcp
-
-# See kgql/mcp/README.md for configuration
 ```
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│                KGQL Query                   │
-│  "MATCH (c:Credential) WHERE c.issuer=$aid" │
-└─────────────────┬───────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────┐
-│              KGQLParser                     │
-│  Query string → AST                         │
-└─────────────────┬───────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────┐
-│             QueryPlanner                    │
-│  AST → ExecutionPlan (keripy methods)       │
-└─────────────────┬───────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────┐
-│               KGQL                          │
-│  Execute plan using wrappers                │
-└─────────────────┬───────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────┐
-│   RegerWrapper / VerifierWrapper            │
-│   Thin delegation to keripy                 │
-└─────────────────┬───────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────┐
-│              keripy                         │
-│   Habery, Regery, Verifier                  │
-└─────────────────────────────────────────────┘
-```
-
-## Testing
-
-```bash
-python -m pytest tests/ -v
-```
-
-## Integration Patterns
-
-### With HIO Doers
-
-KGQL uses Deck pattern for async integration:
-
-```python
-from hio.help import Deck
-
-kgql = KGQL(hby=hby, rgy=rgy)
-
-# Push query to input Deck
-kgql.queries.push(("query-1", "RESOLVE $said", {"said": "ESAID..."}))
-
-# In your Doer, pull results
-result = kgql.results.pull()
-```
-
-### With Claude Code
-
-Configure KGQL MCP server in `.claude/settings.local.json`:
+Configure in any MCP-compatible client:
 
 ```json
 {
   "mcpServers": {
     "kgql": {
       "command": "python3",
-      "args": ["-m", "kgql.mcp"],
-      "env": {}
+      "args": ["-m", "kgql.mcp"]
     }
   }
 }
 ```
 
-Then use tools like `kgql_resolve`, `kgql_verify_chain`, etc.
+Tools: `kgql_resolve`, `kgql_query`, `kgql_verify_chain`, `kgql_by_schema`, `kgql_traverse`
 
-## Chain Verification
+## Architecture
 
-The critical audit function verifies: Turn → Session → Master
-
-```python
-result = kgql.verify_end_to_end_chain(turn_said)
-
-if result.metadata.get("valid"):
-    chain = result.first.data["chain"]
-    for step in chain:
-        print(f"{step['type']}: {step['said'][:16]}...")
-else:
-    print(f"Chain invalid: {result.metadata.get('error')}")
 ```
+ KGQL Query String
+       │
+       ▼
+   KGQLParser ──→ AST
+       │
+       ▼
+  QueryPlanner ──→ ExecutionPlan
+       │
+       ▼
+     KGQL ──→ Execute via wrappers
+       │
+       ▼
+  EdgeResolverRegistry
+   ├── ACDCEdgeResolver (KERI/ACDC)
+   ├── PatternSpaceEdgeResolver (ontology)
+   └── [your resolver]
+       │
+       ▼
+    keripy
+  Habery / Regery / Verifier
+```
+
+## Dependencies
+
+- `keri>=1.2.0` — Core KERI implementation
+- `hio>=0.6.14` — HIO async framework (Deck integration)
+- `lark>=1.1.0` — Parser generator for KGQL grammar
 
 ## License
 

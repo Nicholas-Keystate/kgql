@@ -2,7 +2,7 @@
 KGQL MCP Server - Model Context Protocol server for KERI credential queries.
 
 This module provides an MCP server that exposes KGQL functionality to
-Claude Code and other MCP-compatible clients.
+any MCP-compatible client.
 
 Usage:
     # Run as standalone server
