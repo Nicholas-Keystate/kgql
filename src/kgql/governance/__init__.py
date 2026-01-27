@@ -21,7 +21,7 @@ from kgql.governance.schema import (
     CredentialMatrixEntry,
     FrameworkVersion,
 )
-from kgql.governance.resolver import FrameworkResolver
+from kgql.governance.resolver import FrameworkResolver, VersionChain
 from kgql.governance.checker import ConstraintChecker, operator_satisfies
 from kgql.governance.compiler import (
     ConstraintCompiler,
@@ -37,6 +37,7 @@ __all__ = [
     "CredentialMatrixEntry",
     "FrameworkVersion",
     "FrameworkResolver",
+    "VersionChain",
     "ConstraintChecker",
     "operator_satisfies",
     "ConstraintCompiler",
