@@ -32,6 +32,7 @@ from kgql.translator import QueryPlanner, ExecutionPlan, MethodType
 from kgql.wrappers import RegerWrapper, VerifierWrapper
 from kgql.governance.resolver import FrameworkResolver
 from kgql.governance.checker import ConstraintChecker
+from kgql.exceptions import GovernanceViolation
 
 if TYPE_CHECKING:
     from keri.app.habbing import Habery
@@ -182,7 +183,8 @@ class KGQL:
     def query(
         self,
         kgql_string: str,
-        variables: Optional[dict] = None
+        variables: Optional[dict] = None,
+        enforce_governance: bool = False,
     ) -> QueryResult:
         """
         Execute a KGQL query synchronously.
@@ -192,14 +194,22 @@ class KGQL:
         Args:
             kgql_string: The KGQL query string
             variables: Optional dict of variable bindings ($name -> value)
+            enforce_governance: If True, raise GovernanceViolation when edge
+                traversals violate framework rules. Requires WITHIN FRAMEWORK
+                clause in the query. Default False (violations logged as metadata).
 
         Returns:
             QueryResult with matched items
 
+        Raises:
+            GovernanceViolation: When enforce_governance=True and a traversal
+                violates governance constraints
+
         Example:
             result = kgql.query(
-                "MATCH (c:Credential) WHERE c.issuer = $aid",
-                variables={"aid": "EAID..."}
+                "WITHIN FRAMEWORK $fw MATCH (c:Credential)-[:iss]->(i)",
+                variables={"fw": "EFRAMEWORK_SAID", "aid": "EAID..."},
+                enforce_governance=True
             )
         """
         # Parse the query
@@ -209,7 +219,7 @@ class KGQL:
         plan = self._planner.plan(ast)
 
         # Execute the plan
-        return self._execute(plan, variables or {})
+        return self._execute(plan, variables or {}, enforce_governance=enforce_governance)
 
     def parse(self, kgql_string: str) -> KGQLQuery:
         """
@@ -239,17 +249,28 @@ class KGQL:
         """
         return self._planner.plan(ast)
 
-    def _execute(self, plan: ExecutionPlan, variables: dict) -> QueryResult:
+    def _execute(
+        self,
+        plan: ExecutionPlan,
+        variables: dict,
+        enforce_governance: bool = False,
+    ) -> QueryResult:
         """
         Execute a query plan using existing keripy methods.
 
         Each step in the plan maps directly to a keripy method call.
         If a FRAMEWORK_LOAD step is present, a ConstraintChecker is
         attached to the execution context for governance evaluation.
+
+        Args:
+            plan: Execution plan from query planner
+            variables: Resolved variable bindings
+            enforce_governance: If True, raise GovernanceViolation on constraint violations
         """
         result = QueryResult()
         step_results = {}
         checker = None  # Governance constraint checker (if WITHIN FRAMEWORK)
+        governance_violations = []  # Collect violations for metadata if not enforcing
 
         for idx, step in enumerate(plan.steps):
             # Resolve variables in step args
@@ -265,7 +286,12 @@ class KGQL:
             elif step.method_type == MethodType.REGER_CLONE:
                 step_result = self._execute_clone(step, resolved_args)
             elif step.method_type == MethodType.REGER_SOURCES:
-                step_result = self._execute_sources(step, resolved_args, step_results)
+                step_result = self._execute_sources(
+                    step, resolved_args, step_results,
+                    checker=checker,
+                    enforce_governance=enforce_governance,
+                    violations=governance_violations,
+                )
             elif step.method_type == MethodType.VERIFIER_CHAIN:
                 step_result = self._execute_verify(step, resolved_args)
             else:
@@ -283,6 +309,8 @@ class KGQL:
             result.metadata["governance"] = {
                 "framework_said": checker.framework_said,
                 "framework_name": checker.framework.name,
+                "enforced": enforce_governance,
+                "violations": [v.to_dict() for v in governance_violations] if governance_violations else [],
             }
 
         return result
@@ -328,20 +356,102 @@ class KGQL:
 
         return self._reger_wrapper.resolve(said)
 
-    def _execute_sources(self, step, args: dict, prior_results: dict) -> list:
-        """Execute a sources traversal."""
+    def _execute_sources(
+        self,
+        step,
+        args: dict,
+        prior_results: dict,
+        checker: Optional[ConstraintChecker] = None,
+        enforce_governance: bool = False,
+        violations: Optional[list] = None,
+    ) -> list:
+        """
+        Execute a sources traversal with optional governance checking.
+
+        When a ConstraintChecker is provided and enforce_governance=True,
+        each edge traversal is checked against framework rules. If a rule
+        is violated, GovernanceViolation is raised.
+
+        Args:
+            step: Execution step
+            args: Resolved arguments
+            prior_results: Results from prior steps
+            checker: Optional ConstraintChecker for governance enforcement
+            enforce_governance: Whether to raise on violations
+            violations: List to collect violations when not enforcing
+        """
+        from keri_governance.primitives import EdgeOperator
+
         # Get starting credential from prior step
         start_cred = prior_results.get("start_cred")
         if not start_cred:
             return []
 
         results = []
+        edge_type = args.get("edge_type", "edge")
+
         for creder, proof in self._reger_wrapper.traverse_sources(
             self._hby.db, start_cred.said
         ):
+            # Check governance constraints if checker is active
+            if checker:
+                # Extract edge operator from credential (default to ANY if not specified)
+                actual_operator = self._extract_edge_operator(creder, edge_type)
+
+                check_result = checker.check_edge(edge_type, actual_operator)
+
+                if not check_result.allowed:
+                    if enforce_governance:
+                        # Raise immediately on violation
+                        raise GovernanceViolation.from_check_result(
+                            check_result,
+                            source_said=start_cred.said if hasattr(start_cred, 'said') else str(start_cred),
+                            target_said=creder.said if hasattr(creder, 'said') else str(creder),
+                            query_context=f"TRAVERSE edge '{edge_type}'",
+                        )
+                    elif violations is not None:
+                        # Collect for metadata when not enforcing
+                        violations.extend(check_result.violations)
+
             results.append((creder, proof))
 
         return results
+
+    def _extract_edge_operator(self, creder, edge_type: str) -> "EdgeOperator":
+        """
+        Extract edge operator from a credential's edge section.
+
+        Args:
+            creder: Credential object
+            edge_type: The edge type to look up
+
+        Returns:
+            EdgeOperator found, or ANY if not specified
+        """
+        from keri_governance.primitives import EdgeOperator
+
+        # Get credential data
+        if hasattr(creder, 'raw'):
+            cred_data = creder.raw
+        elif hasattr(creder, 'crd'):
+            cred_data = creder.crd
+        elif isinstance(creder, dict):
+            cred_data = creder
+        else:
+            return EdgeOperator.ANY
+
+        # Look in edges section
+        edges = cred_data.get("e", {})
+        if isinstance(edges, dict):
+            edge_info = edges.get(edge_type, {})
+            if isinstance(edge_info, dict):
+                op_str = edge_info.get("o", "ANY")
+                try:
+                    return EdgeOperator(op_str)
+                except (ValueError, KeyError):
+                    return EdgeOperator.ANY
+
+        return EdgeOperator.ANY
 
     def _execute_verify(self, step, args: dict) -> Optional[Any]:
         """Execute chain verification."""

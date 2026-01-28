@@ -39,6 +39,14 @@ from kgql.parser.ast import (
     VerifyOperation,
     EdgeOperator,
 )
+from kgql.exceptions import (
+    KGQLError,
+    QueryParseError,
+    QueryExecutionError,
+    GovernanceViolation,
+    GovernanceViolationDetail,
+    LoAInsufficientError,
+)
 
 # Export module - import lazily to avoid circular dependencies
 # Use: from kgql.export import PropertyGraph, export_neo4j, etc.
@@ -55,6 +63,13 @@ __all__ = [
     "TraverseOperation",
     "VerifyOperation",
     "EdgeOperator",
+    # Exceptions
+    "KGQLError",
+    "QueryParseError",
+    "QueryExecutionError",
+    "GovernanceViolation",
+    "GovernanceViolationDetail",
+    "LoAInsufficientError",
 ]
 
 __version__ = "0.1.0"
