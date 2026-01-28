@@ -235,6 +235,7 @@ Tools: `kgql_resolve`, `kgql_query`, `kgql_verify_chain`, `kgql_by_schema`, `kgq
 - `keri>=1.2.0` — Core KERI implementation
 - `hio>=0.6.14` — HIO async framework (Deck integration)
 - `lark>=1.1.0` — Parser generator for KGQL grammar
+- `keri-governance>=0.1.0` — Governance engine (constraint algebra, frameworks, patterns)
 
 ## License
 

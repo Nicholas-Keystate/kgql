@@ -37,6 +37,7 @@ dependencies = [
     "keri>=1.2.0",
     "hio>=0.6.14",
     "lark>=1.1.0",
+    "keri-governance>=0.1.0",
 ]
 
 [project.optional-dependencies]

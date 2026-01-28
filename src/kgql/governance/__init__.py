@@ -1,33 +1,40 @@
 """
-KGQL Governance - Framework credential schema and constraint evaluation.
+KGQL Governance - Re-exports from keri-governance.
 
-Implements KGQL Phase 4: Governance Frameworks. Enables queries like:
-
-    WITHIN FRAMEWORK 'EFrameworkSAID...'
-    MATCH (qvi:QVI)-[:authorized @DI2I]->(agent:Agent)
-    WHERE qvi.jurisdiction = agent.country
-
-This module provides:
-- GovernanceFramework: Parsed governance framework credential
-- ConstraintRule: Individual rule within a framework
-- FrameworkResolver: Resolves framework SAIDs to GovernanceFramework objects
-- ConstraintChecker: Evaluates constraints during query execution
+All governance logic now lives in the standalone keri-governance package.
+This module provides backwards-compatible imports for existing KGQL code.
 """
 
-from kgql.governance.schema import (
+from keri_governance.schema import (  # noqa: F401
     GovernanceFramework,
     ConstraintRule,
     RuleEnforcement,
     CredentialMatrixEntry,
     FrameworkVersion,
 )
-from kgql.governance.resolver import FrameworkResolver, VersionChain
-from kgql.governance.checker import ConstraintChecker, operator_satisfies
-from kgql.governance.compiler import (
+from keri_governance.resolver import FrameworkResolver, VersionChain  # noqa: F401
+from keri_governance.checker import ConstraintChecker, operator_satisfies  # noqa: F401
+from keri_governance.compiler import (  # noqa: F401
     ConstraintCompiler,
     CompiledFramework,
     CompiledFieldConstraint,
     compile_field_expression,
+)
+from keri_governance.patterns import (  # noqa: F401
+    jurisdiction_match,
+    delegation_depth,
+    operator_floor,
+    role_action_matrix,
+    temporal_validity,
+    chain_integrity,
+    vlei_standard_framework,
+)
+from keri_governance.evolution import GovernanceEvolution, EvolutionResult  # noqa: F401
+from keri_governance.systems import (  # noqa: F401
+    SYSTEM_CATALOG,
+    build_framework,
+    build_all_frameworks,
+    register_all_frameworks,
 )
 
 __all__ = [
@@ -44,4 +51,17 @@ __all__ = [
     "CompiledFramework",
     "CompiledFieldConstraint",
     "compile_field_expression",
+    "GovernanceEvolution",
+    "EvolutionResult",
+    "SYSTEM_CATALOG",
+    "build_framework",
+    "build_all_frameworks",
+    "register_all_frameworks",
+    "jurisdiction_match",
+    "delegation_depth",
+    "operator_floor",
+    "role_action_matrix",
+    "temporal_validity",
+    "chain_integrity",
+    "vlei_standard_framework",
 ]

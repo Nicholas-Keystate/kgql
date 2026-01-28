@@ -10,22 +10,9 @@ from enum import Enum
 from typing import Optional, Union
 
 
-class EdgeOperator(Enum):
-    """
-    Edge constraint operators for KERI property graph queries.
-
-    These operators define the relationship constraints between
-    credential issuers and subjects:
-
-    - I2I: Issuer-to-Issuer (child issuer == parent subject)
-    - DI2I: Delegated-Issuer-to-Issuer (child issuer in delegation chain)
-    - NI2I: No-Issuer-to-Issuer constraint (third-party attestation)
-    - ANY: Accept any valid edge (no constraint)
-    """
-    I2I = "I2I"
-    DI2I = "DI2I"
-    NI2I = "NI2I"
-    ANY = "ANY"
+# EdgeOperator is now defined in keri-governance and re-exported here
+# for backwards compatibility with existing KGQL code.
+from keri_governance.primitives import EdgeOperator  # noqa: F401
 
 
 class SortDirection(Enum):
