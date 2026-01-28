@@ -695,3 +695,61 @@ class KGQL:
         }
 
         return result
+
+    def export(
+        self,
+        result: QueryResult,
+        format: str = "property_graph",
+        **kwargs,
+    ):
+        """
+        Export query result to external graph format.
+
+        Builds a PropertyGraph from the QueryResult and exports it
+        to the requested format.
+
+        Args:
+            result: QueryResult from a prior query() call
+            format: Export format - one of:
+                - "property_graph": JSON-serializable dict (default)
+                - "neo4j": Neo4j Cypher CREATE statements
+                - "rdf": RDF/Turtle triples
+                - "mermaid": Mermaid flowchart diagram
+            **kwargs: Additional arguments passed to the formatter
+
+        Returns:
+            str for neo4j/rdf/mermaid, dict for property_graph
+
+        Example:
+            result = kgql.query("MATCH (c:Credential) WHERE c.issuer = $aid",
+                               variables={"aid": "EAID..."})
+            cypher = kgql.export(result, "neo4j")
+            mermaid = kgql.export(result, "mermaid", direction="TD")
+        """
+        from kgql.export import (
+            PropertyGraph,
+            export_neo4j,
+            export_rdf,
+            export_mermaid,
+            export_property_graph,
+        )
+        from kgql.wrappers.acdc_edge_resolver import ACDCEdgeResolver
+
+        # Build PropertyGraph from result
+        edge_resolver = ACDCEdgeResolver()
+        graph = PropertyGraph.from_query_result(result, edge_resolver=edge_resolver)
+
+        # Export to requested format
+        if format == "property_graph":
+            return export_property_graph(graph)
+        elif format == "neo4j":
+            return export_neo4j(graph, **kwargs)
+        elif format == "rdf":
+            return export_rdf(graph, **kwargs)
+        elif format == "mermaid":
+            return export_mermaid(graph, **kwargs)
+        else:
+            raise ValueError(
+                f"Unknown export format: {format}. "
+                f"Supported formats: property_graph, neo4j, rdf, mermaid"
+            )
